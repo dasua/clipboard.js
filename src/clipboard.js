@@ -6,7 +6,7 @@ import listen from 'good-listener';
  * Base class which takes one or more elements, adds event listeners to them,
  * and instantiates a new `ClipboardAction` on each click.
  */
-export default class Clipboard extends Emitter {
+class Clipboard extends Emitter {
     /**
      * @param {String|HTMLElement|HTMLCollection|NodeList} trigger
      * @param {Object} options
@@ -24,9 +24,10 @@ export default class Clipboard extends Emitter {
      * @param {Object} options
      */
     resolveOptions(options = {}) {
-        this.action = (typeof options.action === 'function') ? options.action : this.defaultAction;
-        this.target = (typeof options.target === 'function') ? options.target : this.defaultTarget;
-        this.text   = (typeof options.text   === 'function') ? options.text   : this.defaultText;
+        this.action    = (typeof options.action    === 'function') ? options.action    : this.defaultAction;
+        this.target    = (typeof options.target    === 'function') ? options.target    : this.defaultTarget;
+        this.text      = (typeof options.text      === 'function') ? options.text      : this.defaultText;
+        this.container = (typeof options.container === 'object')   ? options.container : document.body;
     }
 
     /**
@@ -42,18 +43,19 @@ export default class Clipboard extends Emitter {
      * @param {Event} e
      */
     onClick(e) {
-        let trigger = e.delegateTarget || e.currentTarget;
+        const trigger = e.delegateTarget || e.currentTarget;
 
         if (this.clipboardAction) {
             this.clipboardAction = null;
         }
 
         this.clipboardAction = new ClipboardAction({
-            action  : this.action(trigger),
-            target  : this.target(trigger),
-            text    : this.text(trigger),
-            trigger : trigger,
-            emitter : this
+            action    : this.action(trigger),
+            target    : this.target(trigger),
+            text      : this.text(trigger),
+            container : this.container,
+            trigger   : trigger,
+            emitter   : this
         });
     }
 
@@ -70,11 +72,27 @@ export default class Clipboard extends Emitter {
      * @param {Element} trigger
      */
     defaultTarget(trigger) {
-        let selector = getAttributeValue('target', trigger);
+        const selector = getAttributeValue('target', trigger);
 
         if (selector) {
             return document.querySelector(selector);
         }
+    }
+
+    /**
+     * Returns the support of the given action, or all actions if no action is
+     * given.
+     * @param {String} [action]
+     */
+    static isSupported(action = ['copy', 'cut']) {
+        const actions = (typeof action === 'string') ? [action] : action;
+        let support = !!document.queryCommandSupported;
+
+        actions.forEach((action) => {
+            support = support && !!document.queryCommandSupported(action);
+        });
+
+        return support;
     }
 
     /**
@@ -105,7 +123,7 @@ export default class Clipboard extends Emitter {
  * @param {Element} element
  */
 function getAttributeValue(suffix, element) {
-    let attribute = `data-clipboard-${suffix}`;
+    const attribute = `data-clipboard-${suffix}`;
 
     if (!element.hasAttribute(attribute)) {
         return;
@@ -113,3 +131,5 @@ function getAttributeValue(suffix, element) {
 
     return element.getAttribute(attribute);
 }
+
+module.exports = Clipboard;
